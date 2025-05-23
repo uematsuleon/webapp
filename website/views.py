@@ -1,14 +1,32 @@
-from flask import Blueprint, render_template, request, flash, jsonify
+from flask import Blueprint, render_template, request, flash, jsonify, redirect,url_for,make_response
 from flask_login import login_required, current_user
 from .models import Note
 from . import db
 import json
+from functools import wraps
 
 views = Blueprint('views', __name__)
 
+def no_cache(view):
+    @wraps(view)
+    def no_cache_impl(*args, **kwargs):
+        response = make_response(view(*args, **kwargs))
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
+    return no_cache_impl
+
+@views.before_request
+def allow_exception():
+    if request.endpoint == "home" and request.args.get("new_user") == "true":
+        return
+    if not current_user.is_authenticated:
+        return redirect(url_for("auth.login"))
 
 @views.route('/', methods=['GET', 'POST'])
 @login_required
+@no_cache
 def home():
     if request.method == 'POST': 
         note = request.form.get('note')#Gets the note from the HTML 
